@@ -7,14 +7,14 @@
 #include <FastLED.h>
 
 /** Global defaults */
-#define CANDY_STRIP_WIDTH 10
+#define CANDY_STRIP_WIDTH 5
+#define TRAIN_CAR_LENGTH 5
 #define BLE_LOCAL_NAME "XmasLights_001"
 #define BLE_DEVICE_NAME "XmasLights"
 #define NUMBER_OF_LIGHTS 40
 #define DATA_PIN 3
 
 /** guid block
-9307a368-8d50-48dd-92e8-9f65bb15f98f
 f0d754d8-a042-4d39-9cec-5b2243a2de86
 ecb47133-a2dc-481f-919b-d878ccf2fce3
 6fea786a-3fa5-48e5-bd7b-4ec7a089d7d2
@@ -27,6 +27,7 @@ BLEService g_BLEService ("81bea2b7-ad1a-493a-bf19-123596b3328b");
 BLEBoolCharacteristic g_runLights("3a6d65bb-ed42-4443-a23b-4225e76f10d8", BLERead | BLEWrite);
 BLEUnsignedIntCharacteristic g_numberOfLights("a9497a4a-4735-4b50-b10c-da941ac7b51b", BLERead | BLEWrite);
 BLEUnsignedIntCharacteristic g_candyStripWidth("672b85ce-5175-485e-a9e2-739ebae601d9", BLERead | BLEWrite);
+BLEUnsignedIntCharacteristic g_trainCarLength("9307a368-8d50-48dd-92e8-9f65bb15f98f", BLERead | BLEWrite);
 
 /** TODO: fix this as it's a fixed length array */
 CRGB leds[NUMBER_OF_LIGHTS];
@@ -45,16 +46,39 @@ void configureBLEService() {
   g_runLights.writeValue(1);
   g_numberOfLights.writeValue(NUMBER_OF_LIGHTS);
   g_candyStripWidth.writeValue(CANDY_STRIP_WIDTH);
+  g_trainCarLength.writeValue(TRAIN_CAR_LENGTH);
 
   // Add the characteristics
   g_BLEService.addCharacteristic(g_runLights);
   g_BLEService.addCharacteristic(g_numberOfLights);
   g_BLEService.addCharacteristic(g_candyStripWidth);
+  g_BLEService.addCharacteristic(g_trainCarLength);
 
   // Setup the service
   BLE.addService(g_BLEService);
 
 }
+
+
+/** Green and Red Train */
+void train(unsigned int trainLength, unsigned int nbrLEDS) {
+
+  static int offset = 0;      // train position, advanced each call
+
+  FastLED.clear();
+  for (int j = 0; j < trainLength; j++) {
+    if ((j + offset) < nbrLEDS) {
+      leds[j + offset] = red;
+    }
+    if ((j + trainLength + offset) < nbrLEDS) {
+      leds[j + trainLength + offset] = green;
+    }
+  }
+  
+  FastLED.show();
+  offset = (offset + 1) % nbrLEDS;
+}
+
 
 /** Rotating candy cane - move the candy cane one step everytime we're called */
 void candyCane(unsigned int stripWidth, unsigned int nbrLEDS) {
@@ -144,7 +168,7 @@ void setup() {
 
 float g_fps = 0.0;
 int currentEffect = 0;
-const int maxEffects = 2;
+const int maxEffects = 3;
 
 void loop() {
 
@@ -161,6 +185,9 @@ void loop() {
             break;
           case 1:
             randomGreenAndRed(g_numberOfLights.value());
+            break;
+          case 2:
+            train(g_trainCarLength.value(), g_numberOfLights.value());
             break;
         }
       }
