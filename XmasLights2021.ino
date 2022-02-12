@@ -7,10 +7,10 @@
 #include <FastLED.h>
 
 /** Global defaults */
-#define CANDY_STRIP_WIDTH 5
+#define CANDY_STRIP_WIDTH 10
 #define BLE_LOCAL_NAME "XmasLights_001"
 #define BLE_DEVICE_NAME "XmasLights"
-#define NUMBER_OF_LIGHTS 30
+#define NUMBER_OF_LIGHTS 40
 #define DATA_PIN 3
 
 /** guid block
@@ -79,20 +79,6 @@ void candyCane(unsigned int stripWidth, unsigned int nbrLEDS) {
   FastLED.show(); 
 }
 
-/** Red and White strip train */
-void redAndWhiteStrip(unsigned int stripWidth, unsigned int nbrLEDS) {
-
-  // All white and red
-  for (int i = 0; i < nbrLEDS - stripWidth * 2; i += stripWidth * 2) {
-    for (int j = 0; j < stripWidth; j++) {
-      leds[i+j] = red;
-      leds[i+j+stripWidth] = white;
-    }
-  }
-
-  FastLED.show();
-
-}
 
 /** random green and red */
 void randomGreenAndRed(unsigned int nbrLEDS) {
@@ -103,6 +89,7 @@ void randomGreenAndRed(unsigned int nbrLEDS) {
   FastLED.show();
 
 }
+
 
 void updateDisplay(float fps) {
   display.clearDisplay();
@@ -156,7 +143,8 @@ void setup() {
 }
 
 float g_fps = 0.0;
-int effectNumber = 0;
+int currentEffect = 0;
+const int maxEffects = 2;
 
 void loop() {
 
@@ -164,8 +152,10 @@ void loop() {
 
   if (!BLE.connected()) {         // Only run the effects if NOT connected to BLE
     if (g_runLights.value()) {
+
+      // Run the current effect
       EVERY_N_MILLISECONDS(500) {
-        switch (effectNumber) {
+        switch (currentEffect) {
           case 0:
             candyCane(g_candyStripWidth.value(), g_numberOfLights.value());
             break;
@@ -173,12 +163,11 @@ void loop() {
             randomGreenAndRed(g_numberOfLights.value());
             break;
         }
-        // redAndWhiteStrip(g_candyStripWidth.value(), g_numberOfLights.value());
-        // candyCane(g_candyStripWidth.value(), g_numberOfLights.value());
-        // randomGreenAndRed(g_numberOfLights.value());
       }
+
+      // Switch to the next effect
       EVERY_N_SECONDS(15) {
-        effectNumber = (effectNumber + 1) % 2;
+        currentEffect = (currentEffect + 1) % maxEffects;
       }
    } else {
       FastLED.clear(true);
