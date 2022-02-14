@@ -77,6 +77,8 @@ typedef struct {
 FlashStorage(myConfigData, configData_t);
 configData_t g_configData;
 
+/** Timers */
+unsigned long lastEffectStartTime;    // record the time we start an effect
 
 /** When BLE disconnects update the configuration file */
 void updateConfiguration(BLEDevice central) {
@@ -245,6 +247,8 @@ void setup() {
     BLE.setDeviceName(BLE_DEVICE_NAME);
     BLE.advertise();
   }
+
+  lastEffectStartTime = millis();
 }
 
 float g_fps = 0.0;
@@ -273,9 +277,11 @@ void loop() {
         }
       }
 
-      // Switch to the next effect
-      EVERY_N_SECONDS(g_configData.secondsBetweenEffects) {
+      // Switch to the next effect - NB we cannot EVERY_N_SECONDS() as it doesn't handle variable periods.
+      if (millis() - lastEffectStartTime >= g_configData.secondsBetweenEffects * 1000) {
+        LOG("Switching Effects\n");
         currentEffect = (currentEffect + 1) % maxEffects;
+        lastEffectStartTime = millis();
       }
    } else {
       FastLED.clear(true);
