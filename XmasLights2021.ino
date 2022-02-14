@@ -1,5 +1,20 @@
+/**
+ * @file XmasLights2021.ino
+ * @author Thomas J. Petz, Jr. (tom@tjpetz.com)
+ * @brief Christmas tree light effects for WS1218B LEDS using FastLED with BLE configuration.
+ * @version 0.1
+ * @date 2022-02-13
+ * 
+ * @copyright Copyright (c) 2022
+ * 
+ * @note While it might be nice to use the flash storage on the NINA module the
+ * ArduinoBLE moduel and WiFiNINA are difficult to use together.  Using the WiFiNINA to
+ * access the filesystem disables the BLE functionality.
+ */
+
 #include <Arduino.h>
 #include <ArduinoBLE.h>
+#include <FlashStorage.h>
 
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -11,7 +26,7 @@
 #define TRAIN_CAR_LENGTH 5
 #define BLE_LOCAL_NAME "XmasLights_001"
 #define BLE_DEVICE_NAME "XmasLights"
-#define NUMBER_OF_LIGHTS 40
+#define NUMBER_OF_LIGHTS 144
 #define DATA_PIN 3
 
 /** guid block
@@ -21,6 +36,14 @@ ecb47133-a2dc-481f-919b-d878ccf2fce3
 60a94c4b-4406-4c8b-86c9-3cbc69a19067
 12ee8384-d7b7-4a5a-9176-0f464507be0b
 */
+
+#define MAX_DEBUG_BUFF 256
+#define LOG(...) \
+{ \
+  char _buff[MAX_DEBUG_BUFF]; \
+  snprintf(_buff, MAX_DEBUG_BUFF, __VA_ARGS__); \
+  Serial.print(_buff); \
+}
 
 /** Save our configuration parameters as BLE characteristics */
 BLEService g_BLEService ("81bea2b7-ad1a-493a-bf19-123596b3328b");
@@ -39,14 +62,62 @@ const CRGB black = CHSV(0, 0, 0);;
 /** OLED Display */
 Adafruit_SSD1306 display(128, 64);
 
+/** Configuration storage structure */
+#define CONFIG_FILE_VERSION 1
+typedef struct {
+  int version;
+  bool run;
+  int nbrOfLeds;
+  int candyStripWidth;
+  int trainCarLength;
+} configData_t;
+
+FlashStorage(myConfigData, configData_t);
+configData_t g_configData;
+
+
+/** When BLE disconnects update the configuration file */
+void updateConfiguration(BLEDevice central) {
+  
+  LOG("BLE Disconnected\n");
+
+  // Write the config out if anything has changed.
+  if (g_runLights.value() != g_configData.run ||
+      g_numberOfLights.value() != g_configData.nbrOfLeds ||
+      g_candyStripWidth.value() != g_configData.candyStripWidth ||
+      g_trainCarLength.value() != g_configData.trainCarLength) {
+    LOG("Writing Configuration\n");
+    g_configData.run = g_runLights.value();
+    g_configData.nbrOfLeds = g_numberOfLights.value();
+    g_configData.candyStripWidth = g_candyStripWidth.value();
+    g_configData.trainCarLength = g_trainCarLength.value();
+
+    myConfigData.write(g_configData);
+  }
+}
+
+
 /** Configure the BLE Service and it's characteristics and descriptors */
 void configureBLEService() {
 
-  // Set the defaults
-  g_runLights.writeValue(1);
-  g_numberOfLights.writeValue(NUMBER_OF_LIGHTS);
-  g_candyStripWidth.writeValue(CANDY_STRIP_WIDTH);
-  g_trainCarLength.writeValue(TRAIN_CAR_LENGTH);
+  LOG("configureBLEService\n");
+
+  g_configData = myConfigData.read();
+
+  if (g_configData.version != CONFIG_FILE_VERSION) {
+    // Use the defaults if the version is wrong or not present
+    LOG("Using the default configuration\n");
+    g_configData.version = CONFIG_FILE_VERSION;
+    g_configData.run = true;
+    g_configData.nbrOfLeds = NUMBER_OF_LIGHTS;
+    g_configData.candyStripWidth = CANDY_STRIP_WIDTH;
+    g_configData.trainCarLength = TRAIN_CAR_LENGTH;
+  }
+
+  g_runLights.writeValue(g_configData.run);
+  g_numberOfLights.writeValue(g_configData.nbrOfLeds);
+  g_candyStripWidth.writeValue(g_configData.candyStripWidth);
+  g_trainCarLength.writeValue(g_configData.trainCarLength);
 
   // Add the characteristics
   g_BLEService.addCharacteristic(g_runLights);
@@ -56,7 +127,9 @@ void configureBLEService() {
 
   // Setup the service
   BLE.addService(g_BLEService);
+  BLE.setEventHandler(BLEDisconnected, updateConfiguration);
 
+  LOG("BLE setup complete\n");
 }
 
 
