@@ -9,6 +9,7 @@ local runLights_uuid = bluesee.UUID.new('3a6d65bb-ed42-4443-a23b-4225e76f10d8')
 local nbrOfLights_uuid = bluesee.UUID.new('a9497a4a-4735-4b50-b10c-da941ac7b51b')
 local candyStripWidth_uuid = bluesee.UUID.new('672b85ce-5175-485e-a9e2-739ebae601d9')
 local trainCarLength_uuid = bluesee.UUID.new('9307a368-8d50-48dd-92e8-9f65bb15f98f')
+local secondsBetweenEffects_uuid = bluesee.UUID.new('f0d754d8-a042-4d39-9cec-5b2243a2de86')
 
 -- Create a collection of controls to process
 -- readable and/or writeable text strings
@@ -191,6 +192,8 @@ bluesee.register_service(xmas_service_uuid, function(span)
             add_ReadWriteUnsignedIntegerControl(span, "Candy Cane Strip Width", ch)
         elseif ch.uuid == trainCarLength_uuid then
             add_ReadWriteUnsignedIntegerControl(span, "Train Car Length", ch)
+        elseif ch.uuid == secondsBetweenEffects_uuid then
+            add_ReadWriteUnsignedIntegerControl(span, "Seconds Between Effects", ch)
         else
             span:log("Error - unknown characteristic" .. ch.uuid)
         end

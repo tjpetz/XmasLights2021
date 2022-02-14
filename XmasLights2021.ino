@@ -27,10 +27,10 @@
 #define BLE_LOCAL_NAME "XmasLights_001"
 #define BLE_DEVICE_NAME "XmasLights"
 #define NUMBER_OF_LIGHTS 144
+#define SECONDS_BETWEEN_EFFECTS 15
 #define DATA_PIN 3
 
 /** guid block
-f0d754d8-a042-4d39-9cec-5b2243a2de86
 ecb47133-a2dc-481f-919b-d878ccf2fce3
 6fea786a-3fa5-48e5-bd7b-4ec7a089d7d2
 60a94c4b-4406-4c8b-86c9-3cbc69a19067
@@ -51,6 +51,7 @@ BLEBoolCharacteristic g_runLights("3a6d65bb-ed42-4443-a23b-4225e76f10d8", BLERea
 BLEUnsignedIntCharacteristic g_numberOfLights("a9497a4a-4735-4b50-b10c-da941ac7b51b", BLERead | BLEWrite);
 BLEUnsignedIntCharacteristic g_candyStripWidth("672b85ce-5175-485e-a9e2-739ebae601d9", BLERead | BLEWrite);
 BLEUnsignedIntCharacteristic g_trainCarLength("9307a368-8d50-48dd-92e8-9f65bb15f98f", BLERead | BLEWrite);
+BLEUnsignedIntCharacteristic g_secondsBetweenEffects("f0d754d8-a042-4d39-9cec-5b2243a2de86", BLERead | BLEWrite);
 
 /** TODO: fix this as it's a fixed length array */
 CRGB leds[NUMBER_OF_LIGHTS];
@@ -63,13 +64,14 @@ const CRGB black = CHSV(0, 0, 0);;
 Adafruit_SSD1306 display(128, 64);
 
 /** Configuration storage structure */
-#define CONFIG_FILE_VERSION 1
+#define CONFIG_FILE_VERSION 2
 typedef struct {
   int version;
   bool run;
   int nbrOfLeds;
   int candyStripWidth;
   int trainCarLength;
+  int secondsBetweenEffects;
 } configData_t;
 
 FlashStorage(myConfigData, configData_t);
@@ -85,12 +87,15 @@ void updateConfiguration(BLEDevice central) {
   if (g_runLights.value() != g_configData.run ||
       g_numberOfLights.value() != g_configData.nbrOfLeds ||
       g_candyStripWidth.value() != g_configData.candyStripWidth ||
-      g_trainCarLength.value() != g_configData.trainCarLength) {
+      g_trainCarLength.value() != g_configData.trainCarLength ||
+      g_secondsBetweenEffects.value() != g_configData.secondsBetweenEffects) {
     LOG("Writing Configuration\n");
+    g_configData.version = CONFIG_FILE_VERSION;
     g_configData.run = g_runLights.value();
     g_configData.nbrOfLeds = g_numberOfLights.value();
     g_configData.candyStripWidth = g_candyStripWidth.value();
     g_configData.trainCarLength = g_trainCarLength.value();
+    g_configData.secondsBetweenEffects = g_secondsBetweenEffects.value();
 
     myConfigData.write(g_configData);
   }
@@ -112,18 +117,21 @@ void configureBLEService() {
     g_configData.nbrOfLeds = NUMBER_OF_LIGHTS;
     g_configData.candyStripWidth = CANDY_STRIP_WIDTH;
     g_configData.trainCarLength = TRAIN_CAR_LENGTH;
+    g_configData.secondsBetweenEffects = SECONDS_BETWEEN_EFFECTS;
   }
 
   g_runLights.writeValue(g_configData.run);
   g_numberOfLights.writeValue(g_configData.nbrOfLeds);
   g_candyStripWidth.writeValue(g_configData.candyStripWidth);
   g_trainCarLength.writeValue(g_configData.trainCarLength);
+  g_secondsBetweenEffects.writeValue(g_configData.secondsBetweenEffects);
 
   // Add the characteristics
   g_BLEService.addCharacteristic(g_runLights);
   g_BLEService.addCharacteristic(g_numberOfLights);
   g_BLEService.addCharacteristic(g_candyStripWidth);
   g_BLEService.addCharacteristic(g_trainCarLength);
+  g_BLEService.addCharacteristic(g_secondsBetweenEffects);
 
   // Setup the service
   BLE.addService(g_BLEService);
@@ -266,7 +274,7 @@ void loop() {
       }
 
       // Switch to the next effect
-      EVERY_N_SECONDS(15) {
+      EVERY_N_SECONDS(g_configData.secondsBetweenEffects) {
         currentEffect = (currentEffect + 1) % maxEffects;
       }
    } else {
